@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Whisper Real-time Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .controls {
+        margin: 20px 0;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      #status {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .connected {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      #transcription {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        min-height: 100px;
+      }
+      #transcription-results {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .transcription-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #eee;
+      }
+      .transcription-item:last-child {
+        border-bottom: none;
+      }
+      .transcription-time {
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+      .transcription-text {
+        color: #333;
+        line-height: 1.4;
+      }
+      #visualizer {
+        width: 100%;
+        height: 100px;
+        background: #f0f0f0;
+        margin: 20px 0;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+      }
+      #audio-wave {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .transfer-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-left: 10px;
+        background-color: #ccc;
+      }
+      .transfer-indicator.active {
+        background-color: #28a745;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Whisper Real-time Test</h1>
+
+    <div class="controls">
+      <button id="startBtn">Start Recording</button>
+      <button id="stopBtn" disabled>Stop Recording</button>
+    </div>
+
+    <div id="status" class="disconnected">
+      Disconnected
+      <span class="transfer-indicator" id="transferIndicator"></span>
+    </div>
+
+    <div id="visualizer">
+      <canvas id="audio-wave"></canvas>
+    </div>
+
+    <div id="transcription"></div>
+    <div id="transcription-results"></div>
+
+    <script>
+      let ws;
+      let mediaRecorder;
+      let isRecording = false;
+      let audioContext;
+      let analyser;
+      let dataArray;
+      let animationId;
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const status = document.getElementById("status");
+      const transcription = document.getElementById("transcription");
+      const transcriptionResults = document.getElementById(
+        "transcription-results"
+      );
+      const transferIndicator = document.getElementById("transferIndicator");
+      const canvas = document.getElementById("audio-wave");
+      const canvasCtx = canvas.getContext("2d");
+      let transcriptionHistory = [];
+
+      function audioBufferToWav(buffer) {
+        const numOfChan = buffer.numberOfChannels;
+        const length = buffer.length * numOfChan * 2;
+        const buffer2 = new ArrayBuffer(44 + length);
+        const view = new DataView(buffer2);
+        const channels = [];
+        let offset = 0;
+        let pos = 0;
+
+        // write WAVE header
+        setUint32(0x46464952); // "RIFF"
+        setUint32(36 + length); // file length - 8
+        setUint32(0x45564157); // "WAVE"
+        setUint32(0x20746d66); // "fmt " chunk
+        setUint32(16); // length = 16
+        setUint16(1); // PCM (uncompressed)
+        setUint16(numOfChan);
+        setUint32(buffer.sampleRate);
+        setUint32(buffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+        setUint16(numOfChan * 2); // block-align
+        setUint16(16); // 16-bit
+        setUint32(0x61746164); // "data" - chunk
+        setUint32(length); // chunk length
+
+        // write interleaved data
+        for (let i = 0; i < buffer.numberOfChannels; i++) {
+          channels.push(buffer.getChannelData(i));
+        }
+
+        while (pos < buffer.length) {
+          for (let i = 0; i < numOfChan; i++) {
+            let sample = Math.max(-1, Math.min(1, channels[i][pos]));
+            sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+            view.setInt16(44 + offset, sample, true);
+            offset += 2;
+          }
+          pos++;
+        }
+
+        function setUint16(data) {
+          view.setUint16(pos, data, true);
+          pos += 2;
+        }
+
+        function setUint32(data) {
+          view.setUint32(pos, data, true);
+          pos += 4;
+        }
+
+        return buffer2;
+      }
+
+      function connectWebSocket() {
+        ws = new WebSocket("ws://localhost:8000/ws/transcribe");
+
+        ws.onopen = () => {
+          status.textContent = "Connected";
+          status.className = "connected";
+          startBtn.disabled = false;
+        };
+
+        ws.onclose = () => {
+          status.textContent = "Disconnected";
+          status.className = "disconnected";
+          startBtn.disabled = true;
+          stopBtn.disabled = true;
+          transferIndicator.classList.remove("active");
+          setTimeout(connectWebSocket, 2000);
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === "transcription") {
+            transcription.textContent = data.result.text;
+            addTranscription(data.result.text);
+          }
+        };
+      }
+
+      function drawWaveform() {
+        if (!analyser) return;
+
+        analyser.getByteTimeDomainData(dataArray);
+        canvasCtx.fillStyle = "rgb(240, 240, 240)";
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = "rgb(0, 123, 255)";
+        canvasCtx.beginPath();
+
+        const sliceWidth = canvas.width / dataArray.length;
+        let x = 0;
+
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * canvas.height) / 2;
+
+          if (i === 0) {
+            canvasCtx.moveTo(x, y);
+          } else {
+            canvasCtx.lineTo(x, y);
+          }
+
+          x += sliceWidth;
+        }
+
+        canvasCtx.lineTo(canvas.width, canvas.height / 2);
+        canvasCtx.stroke();
+
+        animationId = requestAnimationFrame(drawWaveform);
+      }
+
+      async function startRecording() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+
+          // Настройка визуализации
+          audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          analyser.fftSize = 2048;
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+          // Настройка canvas
+          canvas.width = canvas.offsetWidth;
+          canvas.height = canvas.offsetHeight;
+
+          // Запуск визуализации
+          drawWaveform();
+
+          // Initialize mediaRecorder
+          mediaRecorder = new MediaRecorder(stream);
+
+          mediaRecorder.ondataavailable = async (event) => {
+            if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+              transferIndicator.classList.add("active");
+
+              try {
+                // Конвертируем в WAV на клиенте
+                const arrayBuffer = await event.data.arrayBuffer();
+                const audioContext = new (window.AudioContext ||
+                  window.webkitAudioContext)();
+                const audioBuffer = await audioContext.decodeAudioData(
+                  arrayBuffer
+                );
+
+                // Конвертируем в WAV
+                const wavBuffer = audioBufferToWav(audioBuffer);
+                const base64Audio = btoa(
+                  String.fromCharCode(...new Uint8Array(wavBuffer))
+                );
+
+                ws.send(
+                  JSON.stringify({
+                    type: "audio",
+                    audio_data: base64Audio,
+                    language: "ru",
+                    model_size: "tiny",
+                    format: "audio/wav",
+                  })
+                );
+              } catch (error) {
+                console.error("Error converting audio:", error);
+              }
+
+              transferIndicator.classList.remove("active");
+            }
+          };
+
+          mediaRecorder.start(1000); // Record in 1-second chunks
+          isRecording = true;
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+        } catch (error) {
+          console.error("Error starting recording:", error);
+        }
+      }
+
+      function stopRecording() {
+        if (mediaRecorder && isRecording) {
+          mediaRecorder.stop();
+          isRecording = false;
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          cancelAnimationFrame(animationId);
+        }
+      }
+
+      function formatTime(date) {
+        return date.toLocaleTimeString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+
+      function addTranscription(text) {
+        const now = new Date();
+        const item = {
+          time: now,
+          text: text,
+        };
+        transcriptionHistory.push(item);
+
+        const div = document.createElement("div");
+        div.className = "transcription-item";
+
+        const timeDiv = document.createElement("div");
+        timeDiv.className = "transcription-time";
+        timeDiv.textContent = formatTime(now);
+
+        const textDiv = document.createElement("div");
+        textDiv.className = "transcription-text";
+        textDiv.textContent = text;
+
+        div.appendChild(timeDiv);
+        div.appendChild(textDiv);
+        transcriptionResults.insertBefore(div, transcriptionResults.firstChild);
+
+        // Ограничиваем историю последними 50 записями
+        if (transcriptionHistory.length > 50) {
+          transcriptionHistory.shift();
+          if (transcriptionResults.lastChild) {
+            transcriptionResults.removeChild(transcriptionResults.lastChild);
+          }
+        }
+      }
+
+      startBtn.addEventListener("click", startRecording);
+      stopBtn.addEventListener("click", stopRecording);
+
+      // Connect to WebSocket when page loads
+      connectWebSocket();
+
+      // Обработка изменения размера окна
+      window.addEventListener("resize", () => {
+        if (canvas) {
+          canvas.width = canvas.offsetWidth;
+          canvas.height = canvas.offsetHeight;
+        }
+      });
+    </script>
+  </body>
+</html>
