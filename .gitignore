@@ -1,0 +1,8 @@
+models/*.bin
+henv
+
+# IDE & macOS junk
+.DS_Store
+.idea/
+__pycache__/
+*.pyc
