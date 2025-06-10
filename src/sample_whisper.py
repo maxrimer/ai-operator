@@ -99,7 +99,8 @@ class STTProcessor:
             logger.info(f"Используется устройство: {device}")
             
             # Загружаем разные размеры моделей
-            model_sizes = ["tiny"]
+            # ["tiny", "base", "small", "medium", "large"]
+            model_sizes = ["medium"]
             
             for size in model_sizes:
                 try:
@@ -421,7 +422,7 @@ if __name__ == "__main__":
     logger.info(f"Запуск сервера на {host}:{port}")
     
     uvicorn.run(
-        "main:app",
+        "sample_whisper:app",
         host=host,
         port=port,
         reload=False,  # Отключаем reload в продакшене
