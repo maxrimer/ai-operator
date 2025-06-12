@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from dotenv import load_dotenv
-from src.routes import health_router, items_router
 
-# Load environment variables
-load_dotenv()
+from src.routes import health_router, items_router, dialog_router
+from src.configs.db_config import DbConfig
+from src.database import engine, Base
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -26,6 +28,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router)
 app.include_router(items_router)
+app.include_router(dialog_router)
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
