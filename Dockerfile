@@ -16,7 +16,6 @@ RUN apt-get update \
 
 # Install Python dependencies
 COPY requirements.txt .
-COPY .env .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 
 # Final stage
