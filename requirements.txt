@@ -7,12 +7,12 @@ loguru==0.7.2
 alembic==1.13.1 
 torch==2.1.0+cu121
 
+faiss-gpu
 boto3
 fastapi
 pydantic
 langgraph
 fasttext
-faiss-cpu
 langchain
 langchain-core
 langchain-openai

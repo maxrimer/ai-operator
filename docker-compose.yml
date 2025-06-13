@@ -13,4 +13,11 @@ services:
       - PORT=8000
     volumes:
       - ./src:/app/src
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped

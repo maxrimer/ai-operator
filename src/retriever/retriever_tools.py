@@ -28,7 +28,7 @@ CASE_INDEX   = ROOT / "data/processed/faiss_e5_transcripts.index"
 
 def best_device() -> str:
     if torch.cuda.is_available():
-        logger.info('Using CUDA device for model inference')
+        logger.info(f'Using CUDA device: {torch.cuda.get_device_name(0)}')
         return "cuda"
     if torch.backends.mps.is_available():
         logger.info('Using MPS device for model inference')
