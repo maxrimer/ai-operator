@@ -106,7 +106,7 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     chat_repository = ChatRepository(db)
     chat = chat_repository.get_chat_by_id(chat_id=req_dto.chat_id)
 
-    logger.info(f"Текущие сообщения: {chat.messages}")
+    # logger.info(f"Текущие сообщения: {chat.messages}")
             
     # Получаем текущие сообщения или инициализируем пустой список
     current_messages = chat.messages or []
@@ -154,7 +154,7 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     # Обновляем столбец messages
     chat.messages = updated_messages
     
-    logger.info(f"Обновленные сообщения: {chat.messages}")
+    # logger.info(f"Обновленные сообщения: {chat.messages}")
     chat = chat_repository.update_chat(chat=chat)
     logger.info("Изменения успешно сохранены")
     
