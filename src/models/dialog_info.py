@@ -9,6 +9,7 @@ class DialogInfo:
     date: datetime = datetime.now()
     is_used: bool = False
     hint_type: str | None = None
+    confidence: float | None = None
 
     def to_dict(self):
         return {
@@ -18,4 +19,5 @@ class DialogInfo:
             "date": self.date.isoformat(),
             "is_used": self.is_used,
             "hint_type": self.hint_type,
+            "confidence": self.confidence
         }

@@ -108,10 +108,12 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     )
     # TODO: проверка на role = client
     # и запуск pipeline
-    all_text = ' '.join([x['text'] for x in current_messages])
+    # all_text = ' '.join([x['text'] for x in current_messages])
+    # all_text += new_message.text
+    all_text = new_message.text
     # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
     #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
-    lang = 'kz'
+    lang = 'ru'
     init_state = CallState(customer_query=all_text, dialog_lang=lang)
     result = flow.invoke(init_state)
     logger.info(f'result: {result}')
@@ -123,12 +125,14 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     updated_messages = current_messages + [new_message.to_dict()]
     
     # TODO: добавить суфлерский хинт
-    # suffler_message = DialogInfo(
-    #     dialog_id=new_message.dialog_id+1,
-    #     role='suffler',
-    #     text='hint'
-    # )
-    # updated_messages = current_messages + [suffler_message.to_dict()]
+    suffler_message = DialogInfo(
+        dialog_id=new_message.dialog_id+1,
+        role='suffler',
+        text=result['hint'],
+        hint_type='quetion' if result['is_query_need_clarification'] else 'not quetion',
+        confidence=result['confidence']
+    )
+    updated_messages = updated_messages + [suffler_message.to_dict()]
     
     # Обновляем столбец messages
     chat.messages = updated_messages
