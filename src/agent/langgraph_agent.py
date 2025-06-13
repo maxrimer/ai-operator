@@ -17,7 +17,8 @@ from src.agent.prompts import generate_query_for_kb, generate_clarify_validation
 
 load_dotenv()
 
-with open('../configs/aliases.json', 'r', encoding='utf-8') as f:
+from src.retriever.csv_retriever import ALIAS_PATH
+with open(ALIAS_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
 values_list = list(data.values())
 
