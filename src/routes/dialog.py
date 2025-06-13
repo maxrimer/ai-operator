@@ -35,6 +35,15 @@ class DialogResponseDto(BaseModel):
     updated_at: Optional[str] = None
     summary: Optional[str] = None
 
+class ChatsResponseDto(BaseModel):
+    chat_id: int
+    customer_number: Optional[str] = None
+    last_message: Optional[List] = []
+    status: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    summary: Optional[str] = None
+
 def make_dialog_response(chat: Chat, one_message: bool = False) -> DialogResponseDto:
     return DialogResponseDto(
             chat_id=chat.id,
@@ -56,7 +65,15 @@ async def get_chats(db: Session = Depends(get_db)):
     chats = chat_repository.get_chats()
     
     return [
-        make_dialog_response(chat=chat, one_message=True)
+        ChatsResponseDto(
+            chat_id=chat.id,
+            customer_number=chat.customer_number,
+            created_at=chat.created_at.isoformat() if chat.created_at else None,
+            updated_at=chat.updated_at.isoformat() if chat.updated_at else None,
+            summary=chat.summary,
+            last_message=[chat.messages[-1]['text']] if chat.messages else [],
+            status=chat.status
+        )
         for chat in chats
     ]
 
