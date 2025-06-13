@@ -2,7 +2,7 @@ import re
 # import torch
 from typing import List
 # from models.toxicity import tok, mdl
-from models.lang_detect import detect_lang
+from models_base.lang_detect import detect_lang
 
 RUDE_WORDS: List[str] = ["лох","тупой","идиот","черт"]
 MAX_LEN_CHARS, MIN_LEN_WORDS = 500, 3
