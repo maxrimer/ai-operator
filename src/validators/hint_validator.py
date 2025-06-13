@@ -5,7 +5,7 @@ from typing import List
 from models.lang_detect import detect_lang
 
 RUDE_WORDS: List[str] = ["лох","тупой","идиот","черт"]
-MAX_LEN_CHARS, MIN_LEN_WORDS = 180, 3
+MAX_LEN_CHARS, MIN_LEN_WORDS = 500, 3
 _re_multi = re.compile(r"[!?]{3,}")
 
 
