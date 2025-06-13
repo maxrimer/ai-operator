@@ -13,3 +13,4 @@ fasttext
 faiss-cpu
 langchain-core
 langchain-openai
+pandas
