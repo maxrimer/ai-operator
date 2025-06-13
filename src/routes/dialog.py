@@ -125,9 +125,9 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     )
     # TODO: проверка на role = client
     # и запуск pipeline
-    # all_text = ' '.join([x['text'] for x in current_messages])
-    # all_text += new_message.text
-    all_text = new_message.text
+    all_text = ' '.join([x['text'] for x in current_messages if x['role'] != 'suffler'])
+    all_text += f' {new_message.text}'
+    
     # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
     #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
     lang = 'ru'
