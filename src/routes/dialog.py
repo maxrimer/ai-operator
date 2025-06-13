@@ -32,14 +32,16 @@ class DialogResponseDto(BaseModel):
     updated_at: Optional[str] = None
     summary: Optional[str] = None
 
-def make_dialog_response(chat: Chat) -> DialogResponseDto:
+def make_dialog_response(chat: Chat, one_message: bool = False) -> DialogResponseDto:
     return DialogResponseDto(
             chat_id=chat.id,
             customer_number=chat.customer_number,
             created_at=chat.created_at.isoformat() if chat.created_at else None,
             updated_at=chat.updated_at.isoformat() if chat.updated_at else None,
             summary=chat.summary,
-            messages=[chat.messages[-1]] if chat.messages else [],
+            messages=[chat.messages[-1]] if chat.messages and one_message 
+                        else chat.messages if chat.messages and not one_message
+                        else [],
             status=chat.status
         )
 
@@ -51,7 +53,7 @@ async def get_chats(db: Session = Depends(get_db)):
     chats = chat_repository.get_chats()
     
     return [
-        make_dialog_response(chat=chat)
+        make_dialog_response(chat=chat, one_message=True)
         for chat in chats
     ]
 
