@@ -15,3 +15,4 @@ langchain-core
 langchain-openai
 pandas
 torch
+sentence-transformers
