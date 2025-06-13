@@ -10,7 +10,8 @@ fastapi
 pydantic
 langgraph
 fasttext
-faiss-cpu
+# faiss-cpu
+langchain
 langchain-core
 langchain-openai
 pandas
