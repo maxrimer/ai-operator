@@ -99,3 +99,8 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+
+
+# alemic
+alembic.ini
+migrations/
