@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Depends, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -23,10 +24,31 @@ class DialogHintRequestDto(BaseModel):
     is_used: bool
 
 class DialogResponseDto(BaseModel):
-    chat_id: int = 0
-    messages: list
+    chat_id: int
+    messages: Optional[List] = []
     status: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    summary: Optional[str] = None
 
+
+@router.get("/chats", response_model=List[DialogResponseDto], status_code=status.HTTP_200_OK)
+async def get_chats(db: Session = Depends(get_db)):
+    """ Get all chats information """
+
+    chat_repository = ChatRepository(db)
+    chats = chat_repository.get_chats()
+    
+    return [
+        DialogResponseDto(
+            chat_id=chat.id,
+            created_at=chat.created_at.isoformat() if chat.created_at else None,
+            updated_at=chat.updated_at.isoformat() if chat.updated_at else None,
+            summary=chat.summary,
+            messages=[chat.messages[-1]] if chat.messages else [],
+            status=chat.status
+        ) for chat in chats
+    ]
 
 @router.post("/create", response_model=DialogResponseDto, status_code=status.HTTP_201_CREATED)
 async def create_chat(db: Session = Depends(get_db)):
@@ -38,7 +60,10 @@ async def create_chat(db: Session = Depends(get_db)):
     db.refresh(new_chat)
     return DialogResponseDto(
         chat_id=new_chat.id,
-        messages=[],
+        created_at=new_chat.created_at.isoformat() if new_chat.created_at else None,
+        updated_at=new_chat.updated_at.isoformat() if new_chat.updated_at else None,
+        summary=new_chat.summary,
+        messages=new_chat.messages if new_chat.messages else [],
         status=new_chat.status
     )
 
@@ -48,17 +73,16 @@ async def get_chat(chat_id: int, db: Session = Depends(get_db)):
     """ Get chat information by chat ID """
 
     chat_repository = ChatRepository(db)
-    chat = chat_repository.get_chat_by_id(chat_id)
+    chat : Chat = chat_repository.get_chat_by_id(chat_id)
     
-    chat_data = {
-        "chat_id": chat.id,
-        "messages": chat.messages,
-        "status": chat.status,
-        "created_at": chat.created_at,
-        "updated_at": chat.updated_at,
-        "summary": chat.summary
-    }
-    return DialogResponseDto(**chat_data)
+    return DialogResponseDto(
+        chat_id=chat.id,
+        created_at=chat.created_at.isoformat() if chat.created_at else None,
+        updated_at=chat.updated_at.isoformat() if chat.updated_at else None,
+        summary=chat.summary,
+        messages=chat.messages if chat.messages else [],
+        status=chat.status
+    )
 
 
 @router.post("", response_model=DialogResponseDto)
@@ -107,13 +131,16 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     chat.messages = updated_messages
     
     logger.info(f"Обновленные сообщения: {chat.messages}")
-    chat_data = chat_repository.update_chat(chat=chat)
+    chat = chat_repository.update_chat(chat=chat)
     logger.info("Изменения успешно сохранены")
     
     return DialogResponseDto(
-        chat_id=chat_data.id,
-        messages=chat_data.messages,
-        status=chat_data.status
+        chat_id=chat.id,
+        created_at=chat.created_at.isoformat() if chat.created_at else None,
+        updated_at=chat.updated_at.isoformat() if chat.updated_at else None,
+        summary=chat.summary,
+        messages=chat.messages if chat.messages else [],
+        status=chat.status
     )
 
 @router.post("/hint", response_model=DialogResponseDto)
@@ -137,14 +164,10 @@ async def pipline_run(req_dto: DialogHintRequestDto, db: Session = Depends(get_d
                         for msg in current_messages]
     chat.messages = updated_messages
 
-    chat_data = chat_repository.update_chat(chat=chat)
+    chat_repository.update_chat(chat=chat)
     logger.info("Изменения успешно сохранены")
     
-    return DialogResponseDto(
-        chat_id=chat_data.id,
-        messages=chat_data.messages,
-        status=chat_data.status
-    )
+    return Response(status_code=200)
 
 @router.post("/close")
 async def pipline_run(chat_id: int, db: Session = Depends(get_db)):

@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from src.models.chat import Chat
@@ -21,6 +21,16 @@ class ChatRepository:
             raise ValueError(f"Chat with ID {chat_id} not found")
             
         return chat
+    
+    def get_chats(self) -> List[Chat]:
+        """
+        Retrieve all chats
+        """
+        query = select(Chat)
+        result = self.db_session.execute(query)
+        chats = result.scalars().all()
+            
+        return chats
     
     def update_chat(self, chat: Chat):
         # Коммитим изменения
