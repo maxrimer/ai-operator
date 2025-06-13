@@ -105,3 +105,6 @@ coverage/
 # alemic
 alembic.ini
 migrations/
+
+# imdex file
+faiss_e5_transcripts.index
