@@ -38,7 +38,7 @@ class DialogResponseDto(BaseModel):
 class ChatsResponseDto(BaseModel):
     chat_id: int
     customer_number: Optional[str] = None
-    last_message: Optional[List] = []
+    last_message: Optional[str] = ""
     status: str
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -71,7 +71,7 @@ async def get_chats(db: Session = Depends(get_db)):
             created_at=chat.created_at.isoformat() if chat.created_at else None,
             updated_at=chat.updated_at.isoformat() if chat.updated_at else None,
             summary=chat.summary,
-            last_message=[chat.messages[-1]['text']] if chat.messages else [],
+            last_message=chat.messages[-1]['text'] if chat.messages else "",
             status=chat.status
         )
         for chat in chats
