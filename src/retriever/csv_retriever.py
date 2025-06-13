@@ -19,7 +19,7 @@ s3_client = S3Client(config=config)
 data_path_krb = 'AI-суфлер общий доступ/КРБ/Данные/resultfizFinal Final.csv'
 data_path_mmb = 'AI-суфлер общий доступ/ММБ/Данные/DBZURRESULTFinal.csv'
 data_path_dop_mmb = 'AI-суфлер общий доступ/ММБ/Данные/FINALresultURAcctsAndBLocksFinal.csv'
-ALIAS_PATH = Path('../configs/aliases.json')
+ALIAS_PATH = Path(__file__).parent.parent / 'configs' / 'aliases.json'
 
 _ALIASES     = None
 
