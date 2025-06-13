@@ -158,7 +158,10 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f'ERROR: {str(e)}')
-    
+        return HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
     
     return make_dialog_response(chat=chat)
 
