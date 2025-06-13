@@ -133,7 +133,7 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     lang = 'ru'
     init_state = CallState(customer_query=all_text, dialog_lang=lang)
     result = flow.invoke(init_state)
-    logger.info(f'result: {result}')
+    # logger.info(f'result: {result}')
 
     
     # TODO: new_message.hint_type = 'q/a'

@@ -1,6 +1,9 @@
 import re
 # import torch
 from typing import List
+
+from loguru import logger
+
 # from models.toxicity import tok, mdl
 from src.models_base.lang_detect import detect_lang
 
@@ -10,6 +13,8 @@ _re_multi = re.compile(r"[!?]{3,}")
 
 
 def hint_validator_node(state):
+    logger.info(f'Started #4 State: hint_validator_node')
+    
     hint = (state.hint or "").strip()
     problems = []
 
@@ -34,5 +39,6 @@ def hint_validator_node(state):
 
     state.hint_valid = not problems
     state.validator_msg = ",".join(problems) if problems else None
+    logger.info(f'Finished #4 State: {state.validator_msg}')
     return state
 

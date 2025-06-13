@@ -2,6 +2,7 @@ import json
 
 from langchain_core.messages import AnyMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
+from loguru import logger
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -37,6 +38,7 @@ sg = StateGraph(CallState)
 
 
 def detect_clarification(state: CallState) -> CallState:
+    logger.info(f'Started #1 State: detect_clarification')
     prompt = generate_clarify_validation_prompt()
     messages = [
         SystemMessage(content=prompt),
@@ -44,10 +46,12 @@ def detect_clarification(state: CallState) -> CallState:
     ]
     text = model.invoke(messages)
     state.is_query_need_clarification = text.content.lower().startswith('да')
+    logger.info(f'Finished #1 State: {state.is_query_need_clarification}; {text.content}')
     return state
 
 
 def rewrite_query(state: CallState) -> CallState:
+    logger.info(f'Started #2 State: rewrite_query')
     prompt = generate_query_for_kb()
     messages = [
         SystemMessage(content=prompt),
@@ -56,6 +60,7 @@ def rewrite_query(state: CallState) -> CallState:
     text = model.invoke(messages)
     clean = text.content.strip().strip('"')
     state.query_for_kb = clean
+    logger.info(f'Finished #2 State: {text.content}')
     return state
 
 
@@ -67,6 +72,7 @@ def needs_clarification(state: CallState) -> str:
 
 
 def ask_clarification(state: CallState) -> CallState:
+    logger.info(f'Started #2 State: ask_clarification')
     prompt = generate_clarification_prompt(state)
     messages = [
         SystemMessage(content=prompt),
@@ -74,10 +80,12 @@ def ask_clarification(state: CallState) -> CallState:
     ]
     text = model.invoke(messages)
     state.hint = text.content.strip()
+    logger.info(f'Finished #2 State: {text.content}')
     return state
 
 
 def generate_hint(state: CallState) -> CallState:
+    logger.info(f'Started #3 State: generate_hint')
     prompt = generate_final_response(state)
     messages = [SystemMessage(content=prompt)]
 
@@ -91,8 +99,10 @@ def generate_hint(state: CallState) -> CallState:
         fn, args = tc["function"]["name"], json.loads(tc["function"]["arguments"])
         if fn == "search_kb":
             result = search_kb(**args)
+            logger.info(f'search_kb: {result}')
         elif fn == "similar_case":
             result = similar_case(**args)
+            logger.info(f'similar_case: {result}')
         else:
             result = {}
 
@@ -112,6 +122,7 @@ def generate_hint(state: CallState) -> CallState:
         state.hint = final["hint"]
         state.confidence = final["confidence"]
         state.source = final["source"]
+        logger.info(f'Finished #3 State: {final}')
     except Exception as e:
         raise ValueError(f"Bad LLM output: {resp2.content}") from e
 
