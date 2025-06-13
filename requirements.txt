@@ -10,3 +10,6 @@ langchain-core==0.3.63
 fastapi
 pydantic
 langgraph
+fasttext
+faiss-cpu
+langchain-openai

@@ -1,13 +1,16 @@
 from datetime import datetime
 from typing import Optional, List
+
 from fastapi import APIRouter, HTTPException, status, Depends, Response
+from loguru import logger
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from src.agent.langgraph_agent import CallState, flow
 from src.repositories.chat_repository import ChatRepository
 from src.database import get_db
 from src.models.chat import Chat
 from src.models.dialog_info import DialogInfo
-from loguru import logger
 
 
 router = APIRouter(tags=["Dialog"], prefix='/dialog')
@@ -105,7 +108,13 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
     )
     # TODO: проверка на role = client
     # и запуск pipeline
-    # all_text = ' '.join([x['text'] for x in current_messages])
+    all_text = ' '.join([x['text'] for x in current_messages])
+    # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
+    #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
+    lang = 'kz'
+    init_state = CallState(customer_query=all_text, dialog_lang=lang)
+    result = flow.invoke(init_state)
+    logger.info(f'result: {result}')
 
     
     # TODO: new_message.hint_type = 'q/a'
