@@ -1,29 +1,35 @@
 import json
+import re
+from typing import Annotated, List
 from llm_wrapper import call_external_llm
 from prompts import generate_query_for_kb, generate_clarify_validation_prompt, generate_clarification_prompt, \
                     generate_final_response
-from src import hint_validator_node, search_kb, similar_case
-
-from langchain_core.messages import AnyMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage
+from src import hint_validator_node, search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool
+from langchain_core.messages import AnyMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage, BaseMessage
 from langgraph.graph import StateGraph, START, END
-from pydantic import BaseModel
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-
 
 load_dotenv()
 
-KW_NOUNS = ["кредит", "карта", "комиссия", "погашение", "лимит", "перевод", "ипотека"]
+with open('../configs/aliases.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+values_list = list(data.values())
 
 model = call_external_llm(model_name="gpt-4o")
 
-tools = [search_kb, similar_case]
+tools = [search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool]
 
 model_with_tools = model.bind_tools(tools)
+
+memory = MemorySaver()
 
 
 class CallState(BaseModel):
     customer_query: str
-    dialog_lang: str
+    customer_id: int
     is_query_need_clarification: bool = False
     query_for_kb: str = ""
     hint: str | None = None
@@ -31,28 +37,24 @@ class CallState(BaseModel):
     confidence: float = 0.0
     hint_valid: bool = True
     validator_msg: str = ""
+    messages: Annotated[List[BaseMessage], add_messages] = Field(default_factory=list)
 
 
 sg = StateGraph(CallState)
 
 
 def detect_clarification(state: CallState) -> CallState:
-    prompt = generate_clarify_validation_prompt()
-    messages = [
-        SystemMessage(content=prompt),
-        HumanMessage(content=state.customer_query)
-    ]
-    text = model.invoke(messages)
-    state.is_query_need_clarification = text.content.lower().startswith('да')
+    state.messages.append(HumanMessage(content=state.customer_query))
+    prompt = generate_clarify_validation_prompt(values_list)
+    messages = [SystemMessage(content=prompt)] + state.messages
+    resp = model.invoke(messages)
+    state.is_query_need_clarification = resp.content.lower().startswith('да')
     return state
 
 
 def rewrite_query(state: CallState) -> CallState:
     prompt = generate_query_for_kb()
-    messages = [
-        SystemMessage(content=prompt),
-        HumanMessage(content=state.customer_query)
-    ]
+    messages = [SystemMessage(content=prompt)] + state.messages
     text = model.invoke(messages)
     clean = text.content.strip().strip('"')
     state.query_for_kb = clean
@@ -68,18 +70,16 @@ def needs_clarification(state: CallState) -> str:
 
 def ask_clarification(state: CallState) -> CallState:
     prompt = generate_clarification_prompt(state)
-    messages = [
-        SystemMessage(content=prompt),
-        HumanMessage(content=state.customer_query)
-    ]
-    text = model.invoke(messages)
-    state.hint = text.content.strip()
+    messages = [SystemMessage(content=prompt)] + state.messages
+    resp = model.invoke(messages)
+    state.messages.append(resp)
+    state.hint = resp.content.strip()
     return state
 
 
 def generate_hint(state: CallState) -> CallState:
-    prompt = generate_final_response(state)
-    messages = [SystemMessage(content=prompt)]
+    prompt = generate_final_response(state, values_list)
+    messages = [SystemMessage(content=prompt)] + state.messages
 
     resp1 = model_with_tools.invoke(messages, tool_choice="auto")
     tool_calls = resp1.additional_kwargs.get("tool_calls", [])
@@ -106,12 +106,19 @@ def generate_hint(state: CallState) -> CallState:
 
     messages += [resp1] + tool_outputs
     resp2 = model_with_tools.invoke(messages, tool_choice="none")
+    content = resp2.content.strip()
+
+    if content.startswith("```"):
+        content = re.sub(r"^```[a-z]*\s*", "", content, flags=re.I)
+        content = re.sub(r"\s*```$", "", content).strip()
 
     try:
-        final = json.loads(resp2.content)
+        final = json.loads(content)
         state.hint = final["hint"]
         state.confidence = final["confidence"]
         state.source = final["source"]
+        agent_reply = AIMessage(content=final["hint"])
+        state.messages.append(agent_reply)
     except Exception as e:
         raise ValueError(f"Bad LLM output: {resp2.content}") from e
 
@@ -139,16 +146,28 @@ sg.add_edge("GenerateHint", "HintValidator")
 sg.add_edge("HintValidator",  END)
 
 
-flow = sg.compile()
+flow = sg.compile(checkpointer=memory)
+
+config = {'configurable': {'thread_id': '123'}}
 
 
 if __name__ == "__main__":
-    customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
-                     "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
-    lang = 'kz'
-    init_state = CallState(customer_query=customer_query, dialog_lang=lang)
-    result = flow.invoke(init_state)
-    print(result)
+    for utt in [
+        "Здравствуйте, меня зовут [PERSON]. Я хотел у вас проконсультироваться по поводу ипотеки, условий ипотеки.",
+        "Какая максимальная сумма займа?"
+    ]:
+        st = CallState(customer_query=utt, customer_id=77019031360)
+        result = flow.invoke(st, config)
+        print(result)
+
+
+
+
+
+    # init_state = CallState(customer_query=customer_query, customer_id=customer_id)
+    # result = flow.invoke(init_state, config)
+    # print(result)
+
 
 
 

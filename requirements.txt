@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 annotated-types==0.7.0
 anyio==4.9.0
 certifi==2025.4.26
@@ -54,3 +55,13 @@ typing_extensions==4.14.0
 urllib3==2.4.0
 xxhash==3.5.0
 zstandard==0.23.0
+=======
+fastapi==0.109.2
+uvicorn==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+python-dotenv==1.0.1
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.25
+loguru==0.7.2 
+>>>>>>> origin/main
