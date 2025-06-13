@@ -1,52 +1,53 @@
-# Use Python 3.11 slim as the base image for building
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Set environment variables
+# Установим переменные окружения
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# Install system dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc \
+# Установим зависимости для сборки fasttext
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    g++ \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Скопируем зависимости
 COPY requirements.txt .
+
+# Соберём колёса
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 
-# Final stage
+# Финальный образ
 FROM python:3.11-slim
 
-# Create non-root user
+# Добавим пользователя
 RUN useradd -m -u 1000 appuser
 
-# Set working directory
 WORKDIR /app
 
-# Copy wheels from builder
+# Копируем зависимости
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 
-# Install dependencies
+# Установим зависимости
 RUN pip install --no-cache /wheels/*
 
-# Copy application code
+# Скопируем код приложения
 COPY src/ ./src/
 
-# Set environment variables
+# Переменные окружения
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8000
 
-# Switch to non-root user
+# Запуск от непривилегированного пользователя
 USER appuser
 
-# Expose port
+# Откроем порт
 EXPOSE ${PORT}
 
-# Command to run the application
-CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"] 
+# Запуск приложения
+CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
