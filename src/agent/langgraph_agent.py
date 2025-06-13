@@ -83,7 +83,7 @@ def ask_clarification(state: CallState) -> CallState:
     resp = model.invoke(messages)
     state.messages.append(resp)
     state.hint = resp.content.strip()
-    logger.info(f'Finished #2 State: {text.content}')
+    logger.info(f'Finished #2 State: {resp}')
     return state
 
 
