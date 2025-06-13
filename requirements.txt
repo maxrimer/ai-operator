@@ -5,8 +5,8 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.25
 loguru==0.7.2
 alembic==1.13.1 
-torch==2.1.0+cu121
 
+torch
 faiss-gpu
 boto3
 fastapi
