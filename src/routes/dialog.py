@@ -57,7 +57,7 @@ def make_dialog_response(chat: Chat, one_message: bool = False) -> DialogRespons
             status=chat.status
         )
 
-@router.get("/chats", response_model=List[DialogResponseDto], status_code=status.HTTP_200_OK)
+@router.get("/chats", response_model=List[ChatsResponseDto], status_code=status.HTTP_200_OK)
 async def get_chats(db: Session = Depends(get_db)):
     """ Get all chats information """
 

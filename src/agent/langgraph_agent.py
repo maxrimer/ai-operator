@@ -93,6 +93,7 @@ def generate_hint(state: CallState) -> CallState:
     messages = [SystemMessage(content=prompt)] + state.messages
 
     resp1 = model_with_tools.invoke(messages, tool_choice="auto")
+    logger.info(f'Started #3 State: invoked model_with_tools')
     tool_calls = resp1.additional_kwargs.get("tool_calls", [])
     if not tool_calls:
         raise RuntimeError("LLM не запросил инструменты")
@@ -101,9 +102,11 @@ def generate_hint(state: CallState) -> CallState:
     for tc in tool_calls:
         fn, args = tc["function"]["name"], json.loads(tc["function"]["arguments"])
         if fn == "search_kb":
+            logger.info(f'start search_kb')
             result = search_kb(**args)
             logger.info(f'search_kb: {result}')
         elif fn == "similar_case":
+            logger.info(f'start similar_case')
             result = similar_case(**args)
             logger.info(f'similar_case: {result}')
         else:
@@ -118,6 +121,7 @@ def generate_hint(state: CallState) -> CallState:
         )
 
     messages += [resp1] + tool_outputs
+    logger.info(f'invoke resp2')
     resp2 = model_with_tools.invoke(messages, tool_choice="none")
     content = resp2.content.strip()
 
