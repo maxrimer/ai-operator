@@ -1,16 +1,25 @@
 import json
 import re
 from typing import Annotated, List
+
 from llm_wrapper import call_external_llm
 from prompts import generate_query_for_kb, generate_clarify_validation_prompt, generate_clarification_prompt, \
                     generate_final_response
 from src import hint_validator_node, search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool
+
 from langchain_core.messages import AnyMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage, BaseMessage
 from langgraph.graph import StateGraph, START, END
+from loguru import logger
+from pydantic import BaseModel
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+
+from src import hint_validator_node, search_kb, similar_case
+from src.agent.llm_wrapper import call_external_llm
+from src.agent.prompts import generate_query_for_kb, generate_clarify_validation_prompt, generate_clarification_prompt, \
+                    generate_final_response
 
 load_dotenv()
 
@@ -44,20 +53,24 @@ sg = StateGraph(CallState)
 
 
 def detect_clarification(state: CallState) -> CallState:
+    logger.info(f'Started #1 State: detect_clarification')
     state.messages.append(HumanMessage(content=state.customer_query))
     prompt = generate_clarify_validation_prompt(values_list)
     messages = [SystemMessage(content=prompt)] + state.messages
     resp = model.invoke(messages)
     state.is_query_need_clarification = resp.content.lower().startswith('да')
+    logger.info(f'Finished #1 State: {state.is_query_need_clarification}; {resp}')
     return state
 
 
 def rewrite_query(state: CallState) -> CallState:
+    logger.info(f'Started #2 State: rewrite_query')
     prompt = generate_query_for_kb()
     messages = [SystemMessage(content=prompt)] + state.messages
     text = model.invoke(messages)
     clean = text.content.strip().strip('"')
     state.query_for_kb = clean
+    logger.info(f'Finished #2 State: {text.content}')
     return state
 
 
@@ -69,15 +82,18 @@ def needs_clarification(state: CallState) -> str:
 
 
 def ask_clarification(state: CallState) -> CallState:
+    logger.info(f'Started #2 State: ask_clarification')
     prompt = generate_clarification_prompt(state)
     messages = [SystemMessage(content=prompt)] + state.messages
     resp = model.invoke(messages)
     state.messages.append(resp)
     state.hint = resp.content.strip()
+    logger.info(f'Finished #2 State: {text.content}')
     return state
 
 
 def generate_hint(state: CallState) -> CallState:
+    logger.info(f'Started #3 State: generate_hint')
     prompt = generate_final_response(state, values_list)
     messages = [SystemMessage(content=prompt)] + state.messages
 
@@ -91,8 +107,10 @@ def generate_hint(state: CallState) -> CallState:
         fn, args = tc["function"]["name"], json.loads(tc["function"]["arguments"])
         if fn == "search_kb":
             result = search_kb(**args)
+            logger.info(f'search_kb: {result}')
         elif fn == "similar_case":
             result = similar_case(**args)
+            logger.info(f'similar_case: {result}')
         else:
             result = {}
 
@@ -119,6 +137,7 @@ def generate_hint(state: CallState) -> CallState:
         state.source = final["source"]
         agent_reply = AIMessage(content=final["hint"])
         state.messages.append(agent_reply)
+        logger.info(f'Finished #3 State: {final}')
     except Exception as e:
         raise ValueError(f"Bad LLM output: {resp2.content}") from e
 

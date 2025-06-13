@@ -1,6 +1,6 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from src.models.chat import Chat
 
 
@@ -26,7 +26,7 @@ class ChatRepository:
         """
         Retrieve all chats
         """
-        query = select(Chat)
+        query = select(Chat).order_by(desc(Chat.id))
         result = self.db_session.execute(query)
         chats = result.scalars().all()
             

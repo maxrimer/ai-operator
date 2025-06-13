@@ -15,6 +15,7 @@ class Chat(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     summary = Column(String, nullable=True)
     status = Column(String, nullable=False, default='active')
+    customer_number = Column(String, nullable=True)
 
     def __repr__(self):
         return f"<Chat(id={self.id})>" 
