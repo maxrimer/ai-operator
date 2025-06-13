@@ -5,11 +5,11 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.25
 loguru==0.7.2
 alembic==1.13.1 
-langchain-core==0.3.63
 
 fastapi
 pydantic
 langgraph
 fasttext
 faiss-cpu
+langchain-core
 langchain-openai
