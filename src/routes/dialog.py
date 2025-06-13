@@ -136,7 +136,7 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
         # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
         #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
         config = {'configurable': {'thread_id': chat.id}}
-        init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number))
+        init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number.replace(" ", "")))
         result = flow.invoke(input=init_state, config=config)
         
 
