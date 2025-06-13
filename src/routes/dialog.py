@@ -123,41 +123,42 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
         role=req_dto.role,
         text=req_dto.text
     )
-    # TODO: проверка на role = client
-    # и запуск pipeline
-    # all_text = ' '.join([x['text'] for x in current_messages if x['role'] != 'suffler'])
-    # all_text += f' {new_message.text}'
-    all_text = f' {new_message.text}'
-    
-    # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
-    #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
-    lang = 'ru'
-    init_state = CallState(customer_query=all_text, dialog_lang=lang)
-    result = flow.invoke(init_state)
-    # logger.info(f'result: {result}')
-
-    
-    # TODO: new_message.hint_type = 'q/a'
-    
     # Создаем новый список, чтобы SQLAlchemy заметил изменение
     updated_messages = current_messages + [new_message.to_dict()]
+
+    try:
+        # TODO: проверка на role = client
+        # и запуск pipeline
+        # all_text = ' '.join([x['text'] for x in current_messages if x['role'] != 'suffler'])
+        # all_text += f' {new_message.text}'
+        all_text = f' {new_message.text}'
+        
+        # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
+        #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
+        lang = 'ru'
+        init_state = CallState(customer_query=all_text, dialog_lang=lang)
+        result = flow.invoke(init_state)
+        
+
+        # TODO: добавить суфлерский хинт
+        suffler_message = DialogInfo(
+            dialog_id=new_message.dialog_id+1,
+            role='suffler',
+            text=result['hint'],
+            hint_type='quetion' if result['is_query_need_clarification'] else 'not quetion',
+            confidence=result['confidence']
+        )
+        updated_messages = updated_messages + [suffler_message.to_dict()]
+
+        # Обновляем столбец messages
+        chat.messages = updated_messages
+        
+        chat = chat_repository.update_chat(chat=chat)
+        logger.info("Изменения успешно сохранены")
+
+    except Exception as e:
+        logger.error(f'ERROR: {str(e)}')
     
-    # TODO: добавить суфлерский хинт
-    suffler_message = DialogInfo(
-        dialog_id=new_message.dialog_id+1,
-        role='suffler',
-        text=result['hint'],
-        hint_type='quetion' if result['is_query_need_clarification'] else 'not quetion',
-        confidence=result['confidence']
-    )
-    updated_messages = updated_messages + [suffler_message.to_dict()]
-    
-    # Обновляем столбец messages
-    chat.messages = updated_messages
-    
-    # logger.info(f"Обновленные сообщения: {chat.messages}")
-    chat = chat_repository.update_chat(chat=chat)
-    logger.info("Изменения успешно сохранены")
     
     return make_dialog_response(chat=chat)
 
