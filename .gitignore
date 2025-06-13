@@ -108,3 +108,5 @@ migrations/
 
 # imdex file
 faiss_e5_transcripts.index
+
+qdrant_test.*

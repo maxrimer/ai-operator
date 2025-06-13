@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Скопируем зависимости
 COPY requirements.txt .
 COPY data/processed/faiss_index.index /app/data/processed/faiss_index.index
+COPY data/processed/faiss_e5_transcripts.index /app/data/processed/faiss_e5_transcripts.index
 
 # Соберём колёса
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
