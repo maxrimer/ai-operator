@@ -46,13 +46,14 @@ def load_bloks_csv():
 
 
 def retrieve_account_info(client_id: int) -> dict:
+    cid = int(client_id)
     all_data = load_account_csv()
-    rows = all_data[all_data.ID == client_id]
+    rows = all_data[all_data.ID == cid]
     if rows.empty:
-        return {"client_id": client_id, "accounts": []}
+        return {"client_id": cid, "accounts": []}
 
     accounts = [_apply_aliases(r) for _, r in rows.iterrows()]
-    return {"client_id": client_id, "accounts": accounts}
+    return {"client_id": cid, "accounts": accounts}
 
 
 def retrieve_bloks_info(client_id: int) -> dict:
@@ -83,7 +84,7 @@ acc_blocks_retriever_tool = Tool(
 
 
 if __name__ == '__main__':
-    info = retrieve_bloks_info(74957)
-    print(info['accounts'])
+    info = retrieve_account_info(77015222811)
+    print(info)
 
 

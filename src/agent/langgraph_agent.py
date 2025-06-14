@@ -4,7 +4,8 @@ from typing import Annotated, List
 from llm_wrapper import call_external_llm
 from prompts import generate_query_for_kb, generate_clarify_validation_prompt, generate_clarification_prompt, \
                     generate_final_response
-from src import hint_validator_node, search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool
+from src import hint_validator_node, search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool, \
+                retrieve_account_info, retrieve_bloks_info
 from langchain_core.messages import AnyMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage, BaseMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -93,6 +94,14 @@ def generate_hint(state: CallState) -> CallState:
             result = search_kb(**args)
         elif fn == "similar_case":
             result = similar_case(**args)
+        elif fn == "retrieve_account_info":
+            if "__arg1" in args and "client_id" not in args:
+                args["client_id"] = args.pop("__arg1")
+            result = retrieve_account_info(args["client_id"])
+        elif fn == "retrieve_bloks_info":
+            if "__arg1" in args and "client_id" not in args:
+                args["client_id"] = args.pop("__arg1")
+            result = retrieve_bloks_info(**args)
         else:
             result = {}
 
@@ -111,7 +120,10 @@ def generate_hint(state: CallState) -> CallState:
     if content.startswith("```"):
         content = re.sub(r"^```[a-z]*\s*", "", content, flags=re.I)
         content = re.sub(r"\s*```$", "", content).strip()
-
+    if not content.startswith("{"):
+        content = "{" + content
+    if not content.endswith("}"):
+        content = content + "}"
     try:
         final = json.loads(content)
         state.hint = final["hint"]
@@ -148,15 +160,15 @@ sg.add_edge("HintValidator",  END)
 
 flow = sg.compile(checkpointer=memory)
 
-config = {'configurable': {'thread_id': '123'}}
+config = {'configurable': {'thread_id': '129'}}
 
 
 if __name__ == "__main__":
     for utt in [
-        "Здравствуйте, меня зовут [PERSON]. Я хотел у вас проконсультироваться по поводу ипотеки, условий ипотеки.",
-        "Какая максимальная сумма займа?"
+        "Какой Остаток основного долга у меня?",
+        "Почему карта отклоняет платеж? Пишет «операция недоступна»."
     ]:
-        st = CallState(customer_query=utt, customer_id=77019031360)
+        st = CallState(customer_query=utt, customer_id=77015222811)
         result = flow.invoke(st, config)
         print(result)
 
