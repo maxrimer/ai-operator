@@ -8,7 +8,6 @@ alembic==1.13.1
 
 torch
 faiss-cpu
-faiss-gpu
 boto3
 fastapi
 pydantic
