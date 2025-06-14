@@ -7,7 +7,7 @@ loguru==0.7.2
 alembic==1.13.1 
 
 torch
-faiss-gpu
+faiss-cpu
 boto3
 fastapi
 pydantic
@@ -18,4 +18,3 @@ langchain-core
 langchain-openai
 pandas
 sentence-transformers
-numpy<=2.0.0
