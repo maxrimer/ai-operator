@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Скопируем зависимости
 COPY requirements.txt .
 COPY data/processed/ /app/data/processed/
+COPY src/models_base/lid.176.bin /app/src/models_base/lid.176.bin
 
 # Соберём колёса
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
@@ -33,6 +34,7 @@ WORKDIR /app
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 COPY --from=builder /app/data/processed /app/data/processed
+COPY --from=builder /app/src/models_base/lid.176.bin /app/src/models_base/lid.176.bin
 
 # Установим зависимости
 RUN pip install --no-cache /wheels/*

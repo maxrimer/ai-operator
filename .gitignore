@@ -110,3 +110,5 @@ migrations/
 faiss_e5_transcripts.index
 
 qdrant_test.*
+
+lid.176.bin
