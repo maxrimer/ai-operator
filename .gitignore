@@ -1,16 +1,6 @@
-<<<<<<< HEAD
-models/*.bin
-henv
-data/processed/faiss_e5_transcripts.index
-
-# IDE & macOS junk
-.DS_Store
-.idea/
-__pycache__/
-*.pyc
-=======
 # Python
 __pycache__/
+/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -110,4 +100,13 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
->>>>>>> origin/main
+
+
+# alemic
+alembic.ini
+migrations/
+
+# imdex file
+faiss_e5_transcripts.index
+
+qdrant_test.*
