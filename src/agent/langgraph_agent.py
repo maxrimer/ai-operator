@@ -161,7 +161,7 @@ sg.add_node("DetectClarification", detect_clarification)
 sg.add_node("RewriteQuery", rewrite_query)
 sg.add_node("AskClarification", ask_clarification)
 sg.add_node("GenerateHint", generate_hint)
-sg.add_node("HintValidator", hint_validator_node)
+# sg.add_node("HintValidator", hint_validator_node)
 
 sg.add_edge(START, "DetectClarification")
 sg.add_conditional_edges(
@@ -174,8 +174,7 @@ sg.add_conditional_edges(
 )
 sg.add_edge("AskClarification", END)
 sg.add_edge("RewriteQuery", "GenerateHint")
-sg.add_edge("GenerateHint", "HintValidator")
-sg.add_edge("HintValidator",  END)
+sg.add_edge("GenerateHint", END)
 
 
 flow = sg.compile(checkpointer=memory)
