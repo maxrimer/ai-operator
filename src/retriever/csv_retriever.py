@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 from src.utils.s3_config import S3Config
 from src.utils.s3_client import S3Client
+from dotenv import load_dotenv
+load_dotenv()
 
 config = S3Config(
     endpoint_url=os.environ['S3_URL'],
