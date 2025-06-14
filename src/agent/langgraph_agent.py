@@ -183,15 +183,18 @@ sg.add_edge("GenerateHint", END)
 
 flow = sg.compile(checkpointer=memory)
 
-config = {'configurable': {'thread_id': '123'}}
+config = {'configurable': {'thread_id': '126'}}
 
 
 if __name__ == "__main__":
     for utt in [
-        "Здравствуйте, меня зовут [PERSON]. Я хотел у вас проконсультироваться по поводу ипотеки, условий ипотеки.",
-        "Какая максимальная сумма займа?"
+        """
+        Я только что онлайн оформила через приложение кредит. И все нормально прошло.
+        И написано, что деньги уже поступили. А куда поступили, я не могу найти.
+        На текущий счет?  На текущем счету нет.
+        """
     ]:
-        st = CallState(customer_query=utt, customer_id=77019031360)
+        st = CallState(customer_query=utt, customer_id=77017563318)
         result = flow.invoke(st, config)
         print(result)
 

@@ -18,9 +18,9 @@ config = S3Config(
 s3_client = S3Client(config=config)
 
 
-data_path_krb = 'AI-суфлер общий доступ/КРБ/Данные/resultfizFinal Final.csv'
-data_path_mmb = 'AI-суфлер общий доступ/ММБ/Данные/DBZURRESULTFinal.csv'
-data_path_dop_mmb = 'AI-суфлер общий доступ/ММБ/Данные/FINALresultURAcctsAndBLocksFinal.csv'
+data_path_krb = 'AI-суфлер общий доступ/КРБ/Данные/resultfizFinal Final.csv'
+data_path_mmb = 'AI-суфлер общий доступ/ММБ/Данные/DBZURRESULTFinal.csv'
+data_path_dop_mmb = 'AI-суфлер общий доступ/ММБ/Данные/FINALresultURAcctsAndBLocksFinal.csv'
 ALIAS_PATH = Path(__file__).parent.parent / 'configs' / 'aliases.json'
 
 _ALIASES     = None
@@ -118,7 +118,12 @@ acc_blocks_retriever_tool = Tool(
 
 
 if __name__ == '__main__':
-    info = retrieve_account_info(77015222811)
-    print(info)
+    from tempfile import NamedTemporaryFile
+    resp = s3_client.s3.list_objects_v2(
+        Bucket=config.bucket_name,
+        Prefix='AI-суфлер общий доступ/ММБ/Данные/'
+    )
+    for obj in resp.get('Contents', []):
+        print(repr(obj['Key']))
 
 
