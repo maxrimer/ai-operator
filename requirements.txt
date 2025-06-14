@@ -8,6 +8,8 @@ alembic==1.13.1
 
 torch
 faiss-cpu
+fastparquet
+pyarrow
 boto3
 fastapi
 pydantic
