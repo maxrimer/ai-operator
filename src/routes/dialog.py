@@ -150,7 +150,9 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
             role='suffler',
             text=result['hint'],
             hint_type='quetion' if result['is_query_need_clarification'] else 'not quetion',
-            confidence=result['confidence']
+            confidence=result['confidence'],
+            source_name=result['source'],
+            source=f'http://94.131.80.240:8000/dialog/download?filename=1'
         )
         updated_messages = updated_messages + [suffler_message.to_dict()]
 
@@ -248,7 +250,7 @@ async def download_file(filename: int):
         "30": "AI-суфлер общий доступ/ММБ/Транскрибация/Транскриб ММБ Final.xlsx",
         "31": "AI-суфлер общий доступ/Описание полей по кредитам КРБ и ММБ.docx"
     }
-    file_path = file_paths.get(str(filename))
+    file_path = 'AI-суфлер общий доступ/КРБ/База знаний/Автокредит+на+приобретение+авто+с+пробегом.docx'
     file_ext = file_path.split('.')[-1]
 
     if not file_path:
