@@ -143,16 +143,16 @@ def generate_hint(state: CallState) -> CallState:
         content = "{" + content
     if not content.endswith("}"):
         content = content + "}"
-    try:
-        final = json.loads(content)
-        state.hint = final["hint"]
-        state.confidence = final["confidence"]
-        state.source = final["source"]
-        agent_reply = AIMessage(content=final["hint"])
-        state.messages.append(agent_reply)
-        logger.info(f'Finished #3 State: {final}')
-    except Exception as e:
-        raise ValueError(f"Bad LLM output: {resp2.content}") from e
+    # try:
+    final = json.loads(content)
+    state.hint = final["hint"]
+    state.confidence = final["confidence"]
+    state.source = final["source"]
+    agent_reply = AIMessage(content=final["hint"])
+    state.messages.append(agent_reply)
+    logger.info(f'Finished #3 State: {final}')
+    # except Exception as e:
+    #     raise ValueError(f"Bad LLM output: {resp2.content}") from e
 
     return state
 
