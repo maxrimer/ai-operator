@@ -108,7 +108,7 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
     
     chat_repository = ChatRepository(db)
     chat = chat_repository.get_chat_by_id(chat_id=req_dtos[0].chat_id)
-    logger.info(f"Текущии chat_id: {req_dto.chat_id}")
+    logger.info(f"Текущии chat_id: {chat.id}")
 
     for req_dto in req_dtos:
         # Получаем текущие сообщения или инициализируем пустой список
