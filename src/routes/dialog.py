@@ -139,7 +139,7 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
         
         config = {'configurable': {'thread_id': chat.id}}
         init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number.replace(" ", "")))
-        result = await flow.ainvoke(input=init_state, config=config)
+        result = flow.invoke(input=init_state, config=config)
         
         suffler_message = DialogInfo(
             dialog_id=new_message.dialog_id+1,

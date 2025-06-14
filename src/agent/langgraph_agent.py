@@ -2,7 +2,7 @@ import json
 import ast
 import re
 from typing import Annotated, List
-import asyncio
+
 from src import hint_validator_node, search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool, \
                 retrieve_account_info, retrieve_bloks_info
 from langchain_core.messages import AnyMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage, BaseMessage
@@ -13,6 +13,8 @@ from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+
+
 from src.agent.llm_wrapper import call_external_llm
 from src.agent.prompts import generate_query_for_kb, generate_clarify_validation_prompt, generate_clarification_prompt, \
                     generate_final_response
@@ -25,9 +27,13 @@ with open(ALIAS_PATH, 'r', encoding='utf-8') as f:
 values_list = list(data.values())
 
 model = call_external_llm(model_name="gpt-4o")
+
 tools = [search_kb, similar_case, acc_info_retriever_tool, acc_blocks_retriever_tool]
+
 model_with_tools = model.bind_tools(tools)
+
 memory = MemorySaver()
+
 
 class CallState(BaseModel):
     customer_query: str
@@ -41,27 +47,31 @@ class CallState(BaseModel):
     validator_msg: str = ""
     messages: Annotated[List[BaseMessage], add_messages] = Field(default_factory=list)
 
+
 sg = StateGraph(CallState)
 
-async def detect_clarification(state: CallState) -> CallState:
+
+def detect_clarification(state: CallState) -> CallState:
     logger.info(f'Started #1 State: detect_clarification')
     state.messages.append(HumanMessage(content=state.customer_query))
     prompt = generate_clarify_validation_prompt(values_list)
     messages = [SystemMessage(content=prompt)] + state.messages
-    resp = await model.ainvoke(messages)  # Changed to async
+    resp = model.invoke(messages)
     state.is_query_need_clarification = resp.content.lower().startswith('да')
     logger.info(f'Finished #1 State: {state.is_query_need_clarification}; {resp}')
     return state
 
-async def rewrite_query(state: CallState) -> CallState:
+
+def rewrite_query(state: CallState) -> CallState:
     logger.info(f'Started #2 State: rewrite_query')
     prompt = generate_query_for_kb()
     messages = [SystemMessage(content=prompt)] + state.messages
-    text = await model.ainvoke(messages)  # Changed to async
+    text = model.invoke(messages)
     clean = text.content.strip().strip('"')
     state.query_for_kb = clean
     logger.info(f'Finished #2 State: {text.content}')
     return state
+
 
 def needs_clarification(state: CallState) -> str:
     if state.is_query_need_clarification:
@@ -69,51 +79,48 @@ def needs_clarification(state: CallState) -> str:
     else:
         return 'NoClarificationNeeded'
 
-async def ask_clarification(state: CallState) -> CallState:
+
+def ask_clarification(state: CallState) -> CallState:
     logger.info(f'Started #2 State: ask_clarification')
     prompt = generate_clarification_prompt(state)
     messages = [SystemMessage(content=prompt)] + state.messages
-    resp = await model.ainvoke(messages)  # Changed to async
+    resp = model.invoke(messages)
     state.messages.append(resp)
     state.hint = resp.content.strip()
     logger.info(f'Finished #2 State: {resp}')
     return state
 
-async def generate_hint(state: CallState) -> CallState:
+
+def generate_hint(state: CallState) -> CallState:
     logger.info(f'Started #3 State: generate_hint')
     prompt = generate_final_response(state, values_list)
     messages = [SystemMessage(content=prompt)] + state.messages
 
-    resp1 = await model_with_tools.ainvoke(messages, tool_choice="auto")  # Changed to async
+    resp1 = model_with_tools.invoke(messages, tool_choice="auto")
     logger.info(f'Started #3 State: invoked model_with_tools')
     tool_calls = resp1.additional_kwargs.get("tool_calls", [])
     if not tool_calls:
         raise RuntimeError("LLM не запросил инструменты")
 
     tool_outputs = []
-    loop = asyncio.get_event_loop()
     for tc in tool_calls:
         fn, args = tc["function"]["name"], json.loads(tc["function"]["arguments"])
         if fn == "search_kb":
             logger.info(f'start search_kb')
-            # Assuming search_kb is synchronous, wrap it
-            result = await loop.run_in_executor(None, lambda: search_kb(**args))
+            result = search_kb(**args)
             logger.info(f'search_kb: {result}')
         elif fn == "similar_case":
             logger.info(f'start similar_case')
-            # Assuming similar_case is synchronous, wrap it
-            result = await loop.run_in_executor(None, lambda: similar_case(**args))
+            result = similar_case(**args)
             logger.info(f'similar_case: {result}')
         elif fn == "retrieve_account_info":
             if "__arg1" in args and "client_id" not in args:
                 args["client_id"] = args.pop("__arg1")
-            # Assuming retrieve_account_info is synchronous, wrap it
-            result = await loop.run_in_executor(None, lambda: retrieve_account_info(args["client_id"]))
+            result = retrieve_account_info(args["client_id"])
         elif fn == "retrieve_bloks_info":
             if "__arg1" in args and "client_id" not in args:
                 args["client_id"] = args.pop("__arg1")
-            # Assuming retrieve_bloks_info is synchronous, wrap it
-            result = await loop.run_in_executor(None, lambda: retrieve_bloks_info(**args))
+            result = retrieve_bloks_info(**args)
         else:
             result = {}
 
@@ -127,7 +134,7 @@ async def generate_hint(state: CallState) -> CallState:
 
     messages += [resp1] + tool_outputs
     logger.info(f'invoke resp2')
-    resp2 = await model_with_tools.ainvoke(messages, tool_choice="none") 
+    resp2 = model_with_tools.invoke(messages, tool_choice="none")
     content = resp2.content.strip()
 
     if content.startswith("```"):
@@ -139,24 +146,26 @@ async def generate_hint(state: CallState) -> CallState:
         content = content + "}"
     try:
         final = json.loads(content)
-        state.hint = final.get("hint")
-        state.confidence = final.get("confidence")
-        state.source = final.get("source")
-        agent_reply = AIMessage(content=final.get("hint"))
+        state.hint = final["hint"]
+        state.confidence = final["confidence"]
+        state.source = final["source"]
+        agent_reply = AIMessage(content=final["hint"])
         state.messages.append(agent_reply)
         logger.info(f'Finished #3 State: {final}')
     except json.JSONDecodeError:
         try:
             final = ast.literal_eval(content)
         except Exception:
-            logger.error(f"Bad LLM output, cannot parse JSON:\n{content}")
+            raise ValueError(f"Bad LLM output, cannot parse JSON:\n{content}")
 
     return state
+
 
 sg.add_node("DetectClarification", detect_clarification)
 sg.add_node("RewriteQuery", rewrite_query)
 sg.add_node("AskClarification", ask_clarification)
 sg.add_node("GenerateHint", generate_hint)
+# sg.add_node("HintValidator", hint_validator_node)
 
 sg.add_edge(START, "DetectClarification")
 sg.add_conditional_edges(
@@ -171,18 +180,43 @@ sg.add_edge("AskClarification", END)
 sg.add_edge("RewriteQuery", "GenerateHint")
 sg.add_edge("GenerateHint", END)
 
+
 flow = sg.compile(checkpointer=memory)
 
 config = {'configurable': {'thread_id': '123'}}
 
-async def main():
+
+if __name__ == "__main__":
     for utt in [
         "Здравствуйте, меня зовут [PERSON]. Я хотел у вас проконсультироваться по поводу ипотеки, условий ипотеки.",
         "Какая максимальная сумма займа?"
     ]:
         st = CallState(customer_query=utt, customer_id=77019031360)
-        result = await flow.ainvoke(st, config)  # Changed to async
+        result = flow.invoke(st, config)
         print(result)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+
+
+
+    # init_state = CallState(customer_query=customer_query, customer_id=customer_id)
+    # result = flow.invoke(init_state, config)
+    # print(result)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
