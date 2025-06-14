@@ -33,6 +33,7 @@ WORKDIR /app
 # Копируем зависимости
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
+COPY --from=builder /app/data/processed /app/data/processed
 
 # Установим зависимости
 RUN pip install --no-cache /wheels/*
