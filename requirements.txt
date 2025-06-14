@@ -18,3 +18,4 @@ langchain-core
 langchain-openai
 pandas
 sentence-transformers
+numpy<=2.0.0
