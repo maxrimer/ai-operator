@@ -116,11 +116,13 @@ def generate_hint(state: CallState) -> CallState:
         elif fn == "retrieve_account_info":
             if "__arg1" in args and "client_id" not in args:
                 args["client_id"] = args.pop("__arg1")
-            result = retrieve_account_info(args["client_id"])
+            df = retrieve_account_info(args["client_id"])
+            result = df.to_dict(orient="records")
         elif fn == "retrieve_bloks_info":
             if "__arg1" in args and "client_id" not in args:
                 args["client_id"] = args.pop("__arg1")
-            result = retrieve_bloks_info(**args)
+            df = retrieve_account_info(args["client_id"])
+            result = df.to_dict(orient="records")
         else:
             result = {}
 
