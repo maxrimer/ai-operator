@@ -109,15 +109,17 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
     chat_repository = ChatRepository(db)
     chat = chat_repository.get_chat_by_id(chat_id=req_dtos[0].chat_id)
     logger.info(f"Текущии chat_id: {chat.id}")
+    
+    # Получаем текущие сообщения или инициализируем пустой список
+    current_messages = chat.messages or []
 
+    # Проверяем, что current_messages - это список
+    if not isinstance(current_messages, list):
+        logger.warning(f"messages не является списком: {current_messages}")
+        current_messages = []
+
+    updated_messages = current_messages
     for req_dto in req_dtos:
-        # Получаем текущие сообщения или инициализируем пустой список
-        current_messages = chat.messages or []
-        
-        # Проверяем, что current_messages - это список
-        if not isinstance(current_messages, list):
-            logger.warning(f"messages не является списком: {current_messages}")
-            current_messages = []
         
         # Генерируем dialog_id
         last_dialog_id = current_messages[-1]['dialog_id'] if current_messages else 0
@@ -127,7 +129,7 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
             text=req_dto.text
         )
         # Создаем новый список, чтобы SQLAlchemy заметил изменение
-        updated_messages = current_messages + [new_message.to_dict()]
+        updated_messages = updated_messages + [new_message.to_dict()]
 
     try:
         
