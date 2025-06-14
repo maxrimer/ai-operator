@@ -103,8 +103,11 @@ async def get_chat(chat_id: int, db: Session = Depends(get_db)):
 async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(get_db)):
     """
     """
+    if len(req_dtos) == 0:
+        raise HTTPException(status_code=400, detail='len is eq 0')
+    
     chat_repository = ChatRepository(db)
-    chat = chat_repository.get_chat_by_id(chat_id=req_dto.chat_id)
+    chat = chat_repository.get_chat_by_id(chat_id=req_dtos[0].chat_id)
     logger.info(f"Текущии chat_id: {req_dto.chat_id}")
 
     for req_dto in req_dtos:
