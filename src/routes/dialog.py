@@ -11,7 +11,7 @@ from src.repositories.chat_repository import ChatRepository
 from src.database import get_db
 from src.models.chat import Chat
 from src.models.dialog_info import DialogInfo
-
+from src.retriever.csv_retriever import s3_client
 
 router = APIRouter(tags=["Dialog"], prefix='/dialog')
 
@@ -100,47 +100,44 @@ async def get_chat(chat_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=DialogResponseDto)
-async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
+async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(get_db)):
     """
     """
     chat_repository = ChatRepository(db)
     chat = chat_repository.get_chat_by_id(chat_id=req_dto.chat_id)
+    logger.info(f"Текущии chat_id: {req_dto.chat_id}")
 
-    # logger.info(f"Текущие сообщения: {chat.messages}")
-            
-    # Получаем текущие сообщения или инициализируем пустой список
-    current_messages = chat.messages or []
-    
-    # Проверяем, что current_messages - это список
-    if not isinstance(current_messages, list):
-        logger.warning(f"messages не является списком: {current_messages}")
-        current_messages = []
-    
-    # Генерируем dialog_id
-    last_dialog_id = current_messages[-1]['dialog_id'] if current_messages else 0
-    new_message=DialogInfo(
-        dialog_id=last_dialog_id+1,
-        role=req_dto.role,
-        text=req_dto.text
-    )
-    # Создаем новый список, чтобы SQLAlchemy заметил изменение
-    updated_messages = current_messages + [new_message.to_dict()]
+    for req_dto in req_dtos:
+        # Получаем текущие сообщения или инициализируем пустой список
+        current_messages = chat.messages or []
+        
+        # Проверяем, что current_messages - это список
+        if not isinstance(current_messages, list):
+            logger.warning(f"messages не является списком: {current_messages}")
+            current_messages = []
+        
+        # Генерируем dialog_id
+        last_dialog_id = current_messages[-1]['dialog_id'] if current_messages else 0
+        new_message=DialogInfo(
+            dialog_id=last_dialog_id+1,
+            role=req_dto.role,
+            text=req_dto.text
+        )
+        # Создаем новый список, чтобы SQLAlchemy заметил изменение
+        updated_messages = current_messages + [new_message.to_dict()]
 
     try:
-        # TODO: проверка на role = client
-        # и запуск pipeline
-        # all_text = ' '.join([x['text'] for x in current_messages if x['role'] != 'suffler'])
-        # all_text += f' {new_message.text}'
-        all_text = f' {new_message.text}'
         
-        # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
-        #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
+        if len(req_dtos) > 1:
+            all_text = ' '.join([x['text'] for x in updated_messages if x['role'] != 'suffler'])
+        else:
+            # TODO ??? Нужно ли брать предыдушие сообщения ???
+            all_text = f' {new_message.text}'
+        
         config = {'configurable': {'thread_id': chat.id}}
         init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number.replace(" ", "")))
-        result = flow.invoke(input=init_state, config=config)
+        result = await flow.ainvoke(input=init_state, config=config)
         
-
-        # TODO: добавить суфлерский хинт
         suffler_message = DialogInfo(
             dialog_id=new_message.dialog_id+1,
             role='suffler',
@@ -164,6 +161,7 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
         )
     
     return make_dialog_response(chat=chat)
+
 
 @router.post("/hint", response_model=DialogResponseDto)
 async def pipline_run(req_dto: DialogHintRequestDto, db: Session = Depends(get_db)):
@@ -191,6 +189,7 @@ async def pipline_run(req_dto: DialogHintRequestDto, db: Session = Depends(get_d
     
     return Response(status_code=200)
 
+
 @router.post("/close")
 async def pipline_run(chat_id: int, db: Session = Depends(get_db)):
     """
@@ -204,3 +203,88 @@ async def pipline_run(chat_id: int, db: Session = Depends(get_db)):
     logger.info("Status updated to CLOSE")
     
     return Response(status_code=200)
+ 
+
+@router.get("/download", status_code=status.HTTP_200_OK)
+async def download_file(filename: int):
+    """ Download file by filename """
+    file_paths = {
+        "1": "AI-суфлер общий доступ/КРБ/База знаний/Автокредит+на+приобретение+авто+с+пробегом.docx",
+        "2": "AI-суфлер общий доступ/КРБ/База знаний/Автокредит+на+приобретение+нового+авто.docx",
+        "3": "AI-суфлер общий доступ/КРБ/База знаний/Двуставочный+доверительный+кредит.docx",
+        "4": "AI-суфлер общий доступ/КРБ/База знаний/Изменение+даты+ЕП+(ежемесячного+платежа) (1).docx",
+        "5": "AI-суфлер общий доступ/КРБ/База знаний/Кредит+под+залог_заклад+денег.docx",
+        "6": "AI-суфлер общий доступ/КРБ/База знаний/НН+под+залог+квартиры.docx",
+        "7": "AI-суфлер общий доступ/КРБ/База знаний/Памятка по процессу снятия обременения с ТС в МП Банка 18.11.2024.docx",
+        "8": "AI-суфлер общий доступ/КРБ/База знаний/Погашение+ежемесячного+платежа.docx",
+        "9": "AI-суфлер общий доступ/КРБ/База знаний/Получение+отсрочки.docx",
+        "10": "AI-суфлер общий доступ/КРБ/База знаний/Проблемная+просроченная+задолженность.docx",
+        "11": "AI-суфлер общий доступ/КРБ/База знаний/Протокол ЗС 23 от 16.08.24 (2 вопрос).docx",
+        "12": "AI-суфлер общий доступ/КРБ/База знаний/Процесс+снятия+обременения+с+транспортного+средства+в+МП+«Bereke».docx",
+        "13": "AI-суфлер общий доступ/КРБ/База знаний/Реструктуризация.docx",
+        "14": "AI-суфлер общий доступ/КРБ/База знаний/Рефинансирование+автокредита.docx",
+        "15": "AI-суфлер общий доступ/КРБ/База знаний/Снятие+обременения+с+транспортного+средства+в+мобильном+приложении+Банка+«Bereke+Bank».docx",
+        "16": "AI-суфлер общий доступ/КРБ/База знаний/Условия+кредита+без+залога (1).docx",
+        "17": "AI-суфлер общий доступ/КРБ/База знаний/Шаги по оформлению в МП.docx",
+        "18": "AI-суфлер общий доступ/КРБ/База знаний/список часто задаваемых вопрсоов ММБ.docx",
+        "19": "AI-суфлер общий доступ/КРБ/База знаний/❓Условия+кредита+под+залог.docx",
+        "20": "AI-суфлер общий доступ/КРБ/База знаний/💳+Кредитная+линия+в+рамках+_Кредитования+на+неотложные+нужды_ (2).docx",
+        "21": "AI-суфлер общий доступ/КРБ/База знаний/📱Как+оформить+кредит+в+мобильном+приложении.docx",
+        "22": "AI-суфлер общий доступ/КРБ/База знаний/🔁Рефинансирование.docx",
+        "23": "AI-суфлер общий доступ/КРБ/Данные/resultfizFinal Final.csv",
+        "24": "AI-суфлер общий доступ/КРБ/Транскрибация/Транскриб КРБ Final.xlsx",
+        "25": "AI-суфлер общий доступ/ММБ/База знаний/Комиссия_и_тарифы_обслуживание_Юридических_лиц.xlsx",
+        "26": "AI-суфлер общий доступ/ММБ/База знаний/Кредиты.docx",
+        "27": "AI-суфлер общий доступ/ММБ/База знаний/Счета.docx",
+        "28": "AI-суфлер общий доступ/ММБ/Данные/DBZURRESULTFinal.csv",
+        "29": "AI-суфлер общий доступ/ММБ/Данные/FINALresultURAcctsAndBLocksFinal.csv",
+        "30": "AI-суфлер общий доступ/ММБ/Транскрибация/Транскриб ММБ Final.xlsx",
+        "31": "AI-суфлер общий доступ/Описание полей по кредитам КРБ и ММБ.docx"
+    }
+    file_path = file_paths.get(str(filename))
+    file_ext = file_path.split('.')[-1]
+
+    if not file_path:
+        raise HTTPException(
+            status_code=404,
+            detail="File not found"
+        )
+    
+    temp_file = f'temp.{file_ext}'
+    logger.info(temp_file)
+    s3_client.download_file(file_path, temp_file)
+    
+    try:
+        with open(temp_file, 'rb') as file:
+            file_content = file.read()
+            
+        # Clean up the temporary file
+        import os
+        os.remove(temp_file)
+        
+        # Determine content type based on file extension
+        content_type = {
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'csv': 'text/csv',
+            'pdf': 'application/pdf'
+        }.get(file_ext.lower(), 'application/octet-stream')
+        
+        # Get original filename from path
+        original_filename = file_path.split('/')[-1].replace('+', ' ')
+        
+        return Response(
+            content=file_content,
+            media_type=content_type,
+            headers={
+                'Content-Disposition': f'attachment; filename="{original_filename}"'
+            }
+        )
+    except Exception as e:
+        # Clean up temp file in case of error
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error downloading file: {str(e)}"
+        )
