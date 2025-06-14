@@ -151,7 +151,7 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
             text=result['hint'],
             hint_type='quetion' if result['is_query_need_clarification'] else 'not quetion',
             confidence=result['confidence'],
-            source_name=result['source'],
+            source_name=result.get('source'),
             source=f'http://94.131.80.240:8000/dialog/download?filename=1'
         )
         updated_messages = updated_messages + [suffler_message.to_dict()]
