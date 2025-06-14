@@ -1,12 +1,25 @@
+import os
 import pandas as pd
 from langchain.tools import Tool
 import json
 from pathlib import Path
+import tempfile
+from src.utils.s3_config import S3Config
+from src.utils.s3_client import S3Client
 
-data_path_krb = '../../../../Downloads/AI-суфлер общий доступ/КРБ/Данные/resultfizFinal Final.csv'
-data_path_mmb = '../../../../Downloads/AI-суфлер общий доступ/ММБ/Данные/DBZURRESULTFinal.csv'
-data_path_dop_mmb = '../../../../Downloads/AI-суфлер общий доступ/ММБ/Данные/FINALresultURAcctsAndBLocksFinal.csv'
-ALIAS_PATH = Path('../configs/aliases.json')
+config = S3Config(
+    endpoint_url=os.environ['S3_URL'],
+    access_key_id=os.environ['S3_AK'],
+    secret_access_key=os.environ['S3_SK'],
+    bucket_name='data-for-case-1'
+)
+s3_client = S3Client(config=config)
+
+
+data_path_krb = 'AI-суфлер общий доступ/КРБ/Данные/resultfizFinal Final.csv'
+data_path_mmb = 'AI-суфлер общий доступ/ММБ/Данные/DBZURRESULTFinal.csv'
+data_path_dop_mmb = 'AI-суфлер общий доступ/ММБ/Данные/FINALresultURAcctsAndBLocksFinal.csv'
+ALIAS_PATH = Path(__file__).parent.parent / 'configs' / 'aliases.json'
 
 _ALIASES     = None
 
@@ -28,10 +41,21 @@ def _apply_aliases(row: pd.Series) -> dict:
 
 
 def load_account_csv():
-    krb = pd.read_csv(data_path_krb, encoding='cp1251',
-                      sep=';', engine='python')
-    mmb = pd.read_csv(data_path_mmb, encoding='cp1251',
-                      sep=';', engine='python')
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, dir='/tmp') as tmp_krb, \
+         tempfile.NamedTemporaryFile(suffix='.csv', delete=False, dir='/tmp') as tmp_mmb:
+        local_file_path_krb = tmp_krb.name
+        local_file_path_mmb = tmp_mmb.name
+        
+        s3_client.download_file(data_path_krb, local_file_path_krb)
+        s3_client.download_file(data_path_mmb, local_file_path_mmb)
+        
+        krb = pd.read_csv(local_file_path_krb, encoding='cp1251', sep=';', engine='python')
+        mmb = pd.read_csv(local_file_path_mmb, encoding='cp1251', sep=';', engine='python')
+        
+        # Clean up temporary files
+        os.unlink(local_file_path_krb)
+        os.unlink(local_file_path_mmb)
+
     mmb.rename(columns={'CALL_ID': 'ID'}, inplace=True)
     krb.rename(columns={'Номер телефона': 'ID'}, inplace=True)
     all_data = pd.concat([krb, mmb])
@@ -39,10 +63,18 @@ def load_account_csv():
 
 
 def load_bloks_csv():
-    mmd_dop = pd.read_csv(data_path_dop_mmb, encoding='cp1251',
-                          sep=';', engine='python')
-    mmd_dop.drop_duplicates(inplace=True)
-    return mmd_dop
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, dir='/tmp') as tmp_mmb:
+        local_file_path__dop_mmb = tmp_mmb.name
+        s3_client.download_file(data_path_mmb, local_file_path__dop_mmb)
+
+        mmd_dop = pd.read_csv(local_file_path__dop_mmb, encoding='cp1251',
+                            sep=';', engine='python')
+        
+        # Clean up temporary file
+        os.unlink(local_file_path__dop_mmb)
+        
+        mmd_dop.drop_duplicates(inplace=True)
+        return mmd_dop
 
 
 def retrieve_account_info(client_id: int) -> dict:

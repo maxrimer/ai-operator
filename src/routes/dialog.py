@@ -57,7 +57,7 @@ def make_dialog_response(chat: Chat, one_message: bool = False) -> DialogRespons
             status=chat.status
         )
 
-@router.get("/chats", response_model=List[DialogResponseDto], status_code=status.HTTP_200_OK)
+@router.get("/chats", response_model=List[ChatsResponseDto], status_code=status.HTTP_200_OK)
 async def get_chats(db: Session = Depends(get_db)):
     """ Get all chats information """
 
@@ -136,7 +136,7 @@ async def pipline_run(req_dto: DialogRequestDto, db: Session = Depends(get_db)):
         # customer_query = "Сәлем! Менде әлі де Сбербанктен Visa картасы бар, оның жарамдылық мерзімі аяқталмаған," \
         #                  "картам халықаралық төлемдерге ашық. Мен оны Қазақстанда әлі де қолдана аламын ба?"
         config = {'configurable': {'thread_id': chat.id}}
-        init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number))
+        init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number.replace(" ", "")))
         result = flow.invoke(input=init_state, config=config)
         
 

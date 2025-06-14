@@ -13,13 +13,15 @@ from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
+
 from src.agent.llm_wrapper import call_external_llm
 from src.agent.prompts import generate_query_for_kb, generate_clarify_validation_prompt, generate_clarification_prompt, \
                     generate_final_response
 
 load_dotenv()
 
-with open('../configs/aliases.json', 'r', encoding='utf-8') as f:
+from src.retriever.csv_retriever import ALIAS_PATH
+with open(ALIAS_PATH, 'r', encoding='utf-8') as f:
     data = json.load(f)
 values_list = list(data.values())
 
@@ -84,7 +86,7 @@ def ask_clarification(state: CallState) -> CallState:
     resp = model.invoke(messages)
     state.messages.append(resp)
     state.hint = resp.content.strip()
-    logger.info(f'Finished #2 State: {text.content}')
+    logger.info(f'Finished #2 State: {resp}')
     return state
 
 
@@ -94,6 +96,7 @@ def generate_hint(state: CallState) -> CallState:
     messages = [SystemMessage(content=prompt)] + state.messages
 
     resp1 = model_with_tools.invoke(messages, tool_choice="auto")
+    logger.info(f'Started #3 State: invoked model_with_tools')
     tool_calls = resp1.additional_kwargs.get("tool_calls", [])
     if not tool_calls:
         raise RuntimeError("LLM не запросил инструменты")
@@ -102,9 +105,11 @@ def generate_hint(state: CallState) -> CallState:
     for tc in tool_calls:
         fn, args = tc["function"]["name"], json.loads(tc["function"]["arguments"])
         if fn == "search_kb":
+            logger.info(f'start search_kb')
             result = search_kb(**args)
             logger.info(f'search_kb: {result}')
         elif fn == "similar_case":
+            logger.info(f'start similar_case')
             result = similar_case(**args)
             logger.info(f'similar_case: {result}')
         elif fn == "retrieve_account_info":
@@ -127,6 +132,7 @@ def generate_hint(state: CallState) -> CallState:
         )
 
     messages += [resp1] + tool_outputs
+    logger.info(f'invoke resp2')
     resp2 = model_with_tools.invoke(messages, tool_choice="none")
     content = resp2.content.strip()
 
