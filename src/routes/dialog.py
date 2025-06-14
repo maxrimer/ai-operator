@@ -134,10 +134,12 @@ async def pipline_run(req_dtos: List[DialogRequestDto], db: Session = Depends(ge
     try:
         
         if len(req_dtos) > 1:
-            all_text = ' '.join([x['text'] for x in updated_messages if x['role'] != 'suffler'])
+            all_text = '. '.join([x['text'] for x in updated_messages if x['role'] != 'suffler'])
         else:
             # TODO ??? Нужно ли брать предыдушие сообщения ???
             all_text = f' {new_message.text}'
+        
+        logger.info(f'{len(req_dtos)}: {all_text}')
         
         config = {'configurable': {'thread_id': chat.id}}
         init_state = CallState(customer_query=all_text, customer_id=int(chat.customer_number.replace(" ", "")))
